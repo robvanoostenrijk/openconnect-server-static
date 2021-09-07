@@ -46,7 +46,7 @@ RUN set -x && \
 		--disable-shared \
 		--disable-documentation && \
 	sed 's|cnd-copy\.c |&cnd-memcpy.c |' Makefile -i && \
-	make -j`nproc` install
+	make -j`nproc` install-headers install-static
 #
 # gnutls
 #
@@ -78,7 +78,7 @@ RUN set -x && \
 		--disable-libdane \
 		--disable-gost && \
 	make -j`nproc` && \
-	make install
+	make install-strip
 #
 # libev
 #
@@ -93,7 +93,7 @@ RUN set -x && \
 		--enable-static \
 		--disable-shared && \
 	make -j`nproc` && \
-	make install
+	make install-includeHEADERS install-libLTLIBRARIES
 #
 # lz4
 #
@@ -153,4 +153,4 @@ RUN set -x && \
 		--without-tun-tests \
 		--without-utmp && \
 	make -j`nproc` && \
-	make install
+	make install-exec
