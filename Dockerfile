@@ -3,6 +3,7 @@ FROM alpine:latest
 ENV	OCSERV_VERSION="1.1.3" \
 	NETTLE_VERSION="3.7.3" \
 	GNUTLS_VERSION="3.7.2" \
+	LIBSECCOMP_VERSION="2.5.2" \
 	LIBEV_VERSION="4.33" \
 	LZ4_VERSION="1.9.3"
 
@@ -11,6 +12,7 @@ RUN	set -x && \
 	build-base \
 	curl \
 	gnupg \
+	gperf \
 	linux-headers \
 	m4 && \
 	mkdir -p /build && \
@@ -106,6 +108,18 @@ RUN set -x && \
 	install lib/liblz4.a /usr/local/lib && \
 	install lib/lz4*.h /usr/local/include
 #
+# libseccomp
+#
+# Note: 'in_word_set()' in src/syscalls.perf.c conflicts with ocserv exports, rename it to '_in_word_set()'
+RUN set -x && \
+	curl --location --silent --output /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz "https://github.com/seccomp/libseccomp/releases/download/v${LIBSECCOMP_VERSION}/libseccomp-${LIBSECCOMP_VERSION}.tar.gz" && \
+	tar -xf /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz -C /build && \
+	rm -f /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz && \
+	cd /build/libseccomp-${LIBSECCOMP_VERSION} && \
+	./configure --disable-shared --enable-static && \
+	sed -i 's/in_word_set/_in_word_set/g' src/syscalls.perf.c && \
+	make install
+#
 #	Download ocserv
 #
 RUN set -x && \
@@ -136,7 +150,6 @@ RUN set -x && \
 	LIBREADLINE_LIBS="-L/usr/local/lib -lreadline" \
 	LDFLAGS="-L/usr/local/lib -s -w -static" \
 	./configure \
-		--disable-seccomp \
 		--with-local-talloc \
 		--with-pager="" \
 		--without-geoip \
