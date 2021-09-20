@@ -14,7 +14,8 @@ RUN	set -x && \
 	gnupg \
 	gperf \
 	linux-headers \
-	m4 && \
+	m4 \
+	signify && \
 	mkdir -p /build && \
 	cd /build && \
 	set -- \
@@ -87,7 +88,8 @@ RUN set -x && \
 RUN set -x && \
 	curl --location --silent --output /build/libev-${LIBEV_VERSION}.tar.gz "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz" && \
 	curl --location --silent --compressed --output /build/libev-${LIBEV_VERSION}.tar.gz.sig "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz.sig" && \
-	#gpg --verify /build/libev-${LIBEV_VERSION}.tar.gz.sig && \
+	curl --location --silent --compressed --output /build/signing-key.pub "http://dist.schmorp.de/signing-key.pub" && \
+	signify -V -p /build/signing-key.pub -m /build/libev-${LIBEV_VERSION}.tar.gz && \
 	tar -xf /build/libev-${LIBEV_VERSION}.tar.gz -C /build && \
 	rm -f /build/libev-${LIBEV_VERSION}.tar.gz /build/libev-${LIBEV_VERSION}.tar.gz.sig && \
 	cd /build/libev-${LIBEV_VERSION} && \
