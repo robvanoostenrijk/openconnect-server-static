@@ -7,24 +7,26 @@ ENV	OCSERV_VERSION="1.1.3" \
 	LIBEV_VERSION="4.33" \
 	LZ4_VERSION="1.9.3"
 
-RUN	set -x && \
-	apk add --no-cache \
-	build-base \
-	curl \
-	gnupg \
-	gperf \
-	linux-headers \
-	m4 \
-	signify && \
-	mkdir -p /build && \
-	cd /build && \
-	set -- \
+RUN	set -x \
+&&	apk add --no-cache \
+		build-base \
+		curl \
+		gnupg \
+		gperf \
+		linux-headers \
+		m4 \
+		signify \
+		xz \
+		--repository=http://dl-cdn.alpinelinux.org/alpine/latest-stable/main \
+&&	mkdir -p /build \
+&&	cd /build \
+&&	set -- \
 		343C2FF0FBEE5EC2EDBEF399F3599FF828C67298 \
 		462225C3B46F34879FC8496CD605848ED7E69871 \
-		1F42418905D8206AA754CCDC29EE58B996865171 && \
-	gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys $@ || \
-	gpg --batch --keyserver hkps://peegeepee.com --recv-keys $@ && \
-	gpg --yes --list-keys --fingerprint --with-colons | sed -E -n -e 's/^fpr:::::::::([0-9A-F]+):$/\1:6:/p' | gpg --import-ownertrust --yes
+		1F42418905D8206AA754CCDC29EE58B996865171 \
+&&	gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys $@ || \
+	gpg --batch --keyserver hkps://peegeepee.com --recv-keys $@ \
+&&	gpg --yes --list-keys --fingerprint --with-colons | sed -E -n -e 's/^fpr:::::::::([0-9A-F]+):$/\1:6:/p' | gpg --import-ownertrust --yes
 #
 # assets
 #
@@ -32,14 +34,14 @@ COPY ["/assets", "/"]
 #
 # nettle
 #
-RUN set -x && \
-	curl --location --silent --output /build/nettle-${NETTLE_VERSION}.tar.gz "https://ftp.gnu.org/gnu/nettle/nettle-${NETTLE_VERSION}.tar.gz" && \
-	curl --location --silent --compressed --output /build/nettle-${NETTLE_VERSION}.tar.gz.sig "https://ftp.gnu.org/gnu/nettle/nettle-${NETTLE_VERSION}.tar.gz.sig" && \
-	gpg --verify /build/nettle-${NETTLE_VERSION}.tar.gz.sig && \
-	tar -xf /build/nettle-${NETTLE_VERSION}.tar.gz -C /build && \
-	rm -f /build/nettle-${NETTLE_VERSION}.tar.gz /build/nettle-${NETTLE_VERSION}.tar.gz.sig && \
-	cd /build/nettle-${NETTLE_VERSION} && \
-	CFLAGS="-I/usr/local/include" \
+RUN set -x \
+&&	curl --location --silent --output /build/nettle-${NETTLE_VERSION}.tar.gz "https://ftp.gnu.org/gnu/nettle/nettle-${NETTLE_VERSION}.tar.gz" \
+&&	curl --location --silent --compressed --output /build/nettle-${NETTLE_VERSION}.tar.gz.sig "https://ftp.gnu.org/gnu/nettle/nettle-${NETTLE_VERSION}.tar.gz.sig" \
+&&	gpg --verify /build/nettle-${NETTLE_VERSION}.tar.gz.sig \
+&&	tar -xf /build/nettle-${NETTLE_VERSION}.tar.gz -C /build \
+&&	rm -f /build/nettle-${NETTLE_VERSION}.tar.gz /build/nettle-${NETTLE_VERSION}.tar.gz.sig \
+&&	cd /build/nettle-${NETTLE_VERSION} \
+&&	CFLAGS="-I/usr/local/include" \
 	LDFLAGS="-L/usr/local/lib" \
 	./configure \
 		--enable-mini-gmp \
@@ -47,20 +49,20 @@ RUN set -x && \
 		--enable-x86-sha-ni \
 		--enable-static \
 		--disable-shared \
-		--disable-documentation && \
-	sed 's|cnd-copy\.c |&cnd-memcpy.c |' Makefile -i && \
-	make -j`nproc` install-headers install-static
+		--disable-documentation \
+&&	sed 's|cnd-copy\.c |&cnd-memcpy.c |' Makefile -i \
+&&	make -j`nproc` install-headers install-static
 #
 # gnutls
 #
-RUN set -x && \
-	curl --location --silent --output /build/gnutls-${GNUTLS_VERSION}.tar.xz "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -c1-3)/gnutls-${GNUTLS_VERSION}.tar.xz" && \
-	curl --location --silent --compressed --output /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -c1-3)/gnutls-${GNUTLS_VERSION}.tar.xz.sig" && \
-	gpg --verify /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig && \
-	tar -xf /build/gnutls-${GNUTLS_VERSION}.tar.xz -C /build && \
-	rm -f /build/gnutls-${GNUTLS_VERSION}.tar.xz /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig && \
-	cd /build/gnutls-${GNUTLS_VERSION} && \
-	NETTLE_CFLAGS="-I/usr/local/include" \
+RUN set -x \
+&&	curl --location --silent --output /build/gnutls-${GNUTLS_VERSION}.tar.xz "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -c1-3)/gnutls-${GNUTLS_VERSION}.tar.xz" \
+&&	curl --location --silent --compressed --output /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -c1-3)/gnutls-${GNUTLS_VERSION}.tar.xz.sig" \
+&&	gpg --verify /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig \
+&&	tar -xf /build/gnutls-${GNUTLS_VERSION}.tar.xz -C /build \
+&&	rm -f /build/gnutls-${GNUTLS_VERSION}.tar.xz /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig \
+&&	cd /build/gnutls-${GNUTLS_VERSION} \
+&&	NETTLE_CFLAGS="-I/usr/local/include" \
 	NETTLE_LIBS="-L/usr/local/lib -lhogweed" \
 	HOGWEED_CFLAGS="-I/usr/local/include" \
 	HOGWEED_LIBS="-L/usr/local/lib" \
@@ -79,70 +81,70 @@ RUN set -x && \
 		--disable-nls \
 		--disable-guile \
 		--disable-libdane \
-		--disable-gost && \
-	make -j`nproc` && \
-	make install-strip
+		--disable-gost \
+&&	make -j`nproc` \
+&&	make install-strip
 #
 # libev
 #
-RUN set -x && \
-	curl --location --silent --output /build/libev-${LIBEV_VERSION}.tar.gz "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz" && \
-	curl --location --silent --compressed --output /build/libev-${LIBEV_VERSION}.tar.gz.sig "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz.sig" && \
-	curl --location --silent --compressed --output /build/signing-key.pub "http://dist.schmorp.de/signing-key.pub" && \
-	signify -V -p /build/signing-key.pub -m /build/libev-${LIBEV_VERSION}.tar.gz && \
-	tar -xf /build/libev-${LIBEV_VERSION}.tar.gz -C /build && \
-	rm -f /build/libev-${LIBEV_VERSION}.tar.gz /build/libev-${LIBEV_VERSION}.tar.gz.sig && \
-	cd /build/libev-${LIBEV_VERSION} && \
-	./configure \
+RUN set -x \
+&&	curl --location --silent --output /build/libev-${LIBEV_VERSION}.tar.gz "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz" \
+&&	curl --location --silent --compressed --output /build/libev-${LIBEV_VERSION}.tar.gz.sig "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz.sig" \
+&&	curl --location --silent --compressed --output /build/signing-key.pub "http://dist.schmorp.de/signing-key.pub" \
+&&	signify -V -p /build/signing-key.pub -m /build/libev-${LIBEV_VERSION}.tar.gz \
+&&	tar -xf /build/libev-${LIBEV_VERSION}.tar.gz -C /build \
+&&	rm -f /build/libev-${LIBEV_VERSION}.tar.gz /build/libev-${LIBEV_VERSION}.tar.gz.sig \
+&&	cd /build/libev-${LIBEV_VERSION} \
+&&	./configure \
 		--enable-static \
-		--disable-shared && \
-	make -j`nproc` && \
-	make install-includeHEADERS install-libLTLIBRARIES
+		--disable-shared \
+&&	make -j`nproc` \
+&&	make install-includeHEADERS install-libLTLIBRARIES
 #
 # lz4
 #
-RUN set -x && \
-	curl --location --silent --output /build/lz4-${LZ4_VERSION}.tar.gz "https://github.com/lz4/lz4/archive/refs/tags/v${LZ4_VERSION}.tar.gz" && \
-	tar -xf /build/lz4-${LZ4_VERSION}.tar.gz -C /build && \
-	rm -f /build/lz4-${LZ4_VERSION}.tar.gz && \
-	cd /build/lz4-${LZ4_VERSION} && \
-	make -j`nproc` liblz4.a && \
-	install lib/liblz4.a /usr/local/lib && \
-	install lib/lz4*.h /usr/local/include
+RUN set -x \
+&&	curl --location --silent --output /build/lz4-${LZ4_VERSION}.tar.gz "https://github.com/lz4/lz4/archive/refs/tags/v${LZ4_VERSION}.tar.gz" \
+&&	tar -xf /build/lz4-${LZ4_VERSION}.tar.gz -C /build \
+&&	rm -f /build/lz4-${LZ4_VERSION}.tar.gz \
+&&	cd /build/lz4-${LZ4_VERSION} \
+&&	make -j`nproc` liblz4.a \
+&&	install lib/liblz4.a /usr/local/lib \
+&&	install lib/lz4*.h /usr/local/include
 #
 # libseccomp
 #
 # Note: 'in_word_set()' in src/syscalls.perf.c conflicts with ocserv exports, rename it to '_in_word_set()'
-RUN set -x && \
-	curl --location --silent --output /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz "https://github.com/seccomp/libseccomp/releases/download/v${LIBSECCOMP_VERSION}/libseccomp-${LIBSECCOMP_VERSION}.tar.gz" && \
-	tar -xf /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz -C /build && \
-	rm -f /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz && \
-	cd /build/libseccomp-${LIBSECCOMP_VERSION} && \
-	./configure --disable-shared --enable-static && \
-	sed -i 's/in_word_set/_in_word_set/g' src/syscalls.perf.c && \
-	make install
+RUN set -x \
+&&	curl --location --silent --output /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz "https://github.com/seccomp/libseccomp/releases/download/v${LIBSECCOMP_VERSION}/libseccomp-${LIBSECCOMP_VERSION}.tar.gz" \
+&&	tar -xf /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz -C /build \
+&&	rm -f /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz \
+&&	cd /build/libseccomp-${LIBSECCOMP_VERSION} \
+&&	./configure --disable-shared --enable-static \
+&&	sed -i 's/in_word_set/_in_word_set/g' src/syscalls.perf.c \
+&&	make install
 #
 #	Download ocserv
 #
-RUN set -x && \
-	curl --location --silent --output /build/ocserv-${OCSERV_VERSION}.tar.xz "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz" && \
-	curl --location --silent --compressed --output /build/ocserv-${OCSERV_VERSION}.tar.xz.sig "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig" && \
-	gpg --verify /build/ocserv-${OCSERV_VERSION}.tar.xz.sig && \
-	tar -xf /build/ocserv-${OCSERV_VERSION}.tar.xz -C /build && \
-	rm -f /build/ocserv-${OCSERV_VERSION}.tar.xz /build/ocserv-${OCSERV_VERSION}.tar.xz.sig
+RUN set -x \
+&&	curl --location --silent --output /build/ocserv-${OCSERV_VERSION}.tar.xz "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz" \
+&&	curl --location --silent --compressed --output /build/ocserv-${OCSERV_VERSION}.tar.xz.sig "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig" \
+&&	gpg --verify /build/ocserv-${OCSERV_VERSION}.tar.xz.sig \
+&&	tar -xf /build/ocserv-${OCSERV_VERSION}.tar.xz -C /build \
+&&	rm -f /build/ocserv-${OCSERV_VERSION}.tar.xz /build/ocserv-${OCSERV_VERSION}.tar.xz.sig
 
-RUN set -x && \
+RUN set -x \
 #
 # readline stub
 #
-	cd /build/readline && \
-	cc -xc -c -O2 readline_stub.c && \
-	ar rcs /usr/local/lib/libreadline.a readline_stub.o && \
+&&	cd /build/readline \
+&&	cc -xc -c -O2 readline_stub.c \
+&&	ar rcs /usr/local/lib/libreadline.a readline_stub.o \
 #
 #	Compile ocserv
 #
-	cd /build/ocserv-${OCSERV_VERSION} && \
-	LIBNETTLE_CFLAGS="-I/usr/local/include" \
+&&	cd /build/ocserv-${OCSERV_VERSION} \
+&&	LIBNETTLE_CFLAGS="-I/usr/local/include" \
 	LIBNETTLE_LIBS="-L/usr/local/lib -lnettle" \
 	LIBGNUTLS_CFLAGS="-I/usr/local/include" \
 	LIBGNUTLS_LIBS="-L/usr/local/lib -lgnutls -lhogweed -lnettle" \
@@ -166,6 +168,7 @@ RUN set -x && \
 		--without-protobuf \
 		--without-radius \
 		--without-tun-tests \
-		--without-utmp && \
-	make -j`nproc` && \
-	make install-exec
+		--without-utmp \
+&&	make -j`nproc` \
+&&	make install-exec \
+&&	file /usr/local/sbin/ocserv
