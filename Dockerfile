@@ -1,9 +1,9 @@
 FROM alpine:latest
 
 ENV	OCSERV_VERSION="1.1.6" \
-	NETTLE_VERSION="3.7.3" \
-	GNUTLS_VERSION="3.7.3" \
-	LIBSECCOMP_VERSION="2.5.3" \
+	NETTLE_VERSION="3.8" \
+	GNUTLS_VERSION="3.7.8" \
+	LIBSECCOMP_VERSION="2.5.4" \
 	LIBEV_VERSION="4.33" \
 	LZ4_VERSION="1.9.3"
 
@@ -24,6 +24,8 @@ RUN	set -x \
 		343C2FF0FBEE5EC2EDBEF399F3599FF828C67298 \
 		462225C3B46F34879FC8496CD605848ED7E69871 \
 		1F42418905D8206AA754CCDC29EE58B996865171 \
+		5D46CB0F763405A7053556F47A75A648B3F9220C \
+		A6AB53A01D237A94F9EEC4D0412748A40AFCC2FB \
 &&	gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys $@ || \
 	gpg --batch --keyserver hkps://peegeepee.com --recv-keys $@ \
 &&	gpg --yes --list-keys --fingerprint --with-colons | sed -E -n -e 's/^fpr:::::::::([0-9A-F]+):$/\1:6:/p' | gpg --import-ownertrust --yes
@@ -56,8 +58,8 @@ RUN set -x \
 # gnutls
 #
 RUN set -x \
-&&	curl --location --silent --output /build/gnutls-${GNUTLS_VERSION}.tar.xz "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -c1-3)/gnutls-${GNUTLS_VERSION}.tar.xz" \
-&&	curl --location --silent --compressed --output /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -c1-3)/gnutls-${GNUTLS_VERSION}.tar.xz.sig" \
+&&	curl --location --silent --output /build/gnutls-${GNUTLS_VERSION}.tar.xz "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -f 1-2 -d .)/gnutls-${GNUTLS_VERSION}.tar.xz" \
+&&	curl --location --silent --compressed --output /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -f 1-2 -d .)/gnutls-${GNUTLS_VERSION}.tar.xz.sig" \
 &&	gpg --verify /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig \
 &&	tar -xf /build/gnutls-${GNUTLS_VERSION}.tar.xz -C /build \
 &&	rm -f /build/gnutls-${GNUTLS_VERSION}.tar.xz /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig \
