@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM alpine:latest AS builder
 
 ENV	OCSERV_VERSION="1.1.6" \
 	NETTLE_VERSION="3.8" \
@@ -9,17 +9,27 @@ ENV	OCSERV_VERSION="1.1.6" \
 
 RUN	set -x \
 &&	apk add --no-cache \
+		brotli-dev \
+		brotli-static \
 		build-base \
 		curl \
 		gnupg \
 		gperf \
+		libidn2-dev \
+		libidn2-static \
+		libunistring-static \
 		linux-headers \
 		m4 \
+		openssl \
 		signify \
+		unbound \
 		xz \
+		zlib-dev \
+		zlib-static \
+		zstd-dev \
 		--repository=http://dl-cdn.alpinelinux.org/alpine/latest-stable/main \
-&&	mkdir -p /build \
-&&	cd /build \
+&&	mkdir -p /usr/src \
+&&	cd /usr/src \
 &&	set -- \
 		343C2FF0FBEE5EC2EDBEF399F3599FF828C67298 \
 		462225C3B46F34879FC8496CD605848ED7E69871 \
@@ -29,6 +39,7 @@ RUN	set -x \
 &&	gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys $@ || \
 	gpg --batch --keyserver hkps://peegeepee.com --recv-keys $@ \
 &&	gpg --yes --list-keys --fingerprint --with-colons | sed -E -n -e 's/^fpr:::::::::([0-9A-F]+):$/\1:6:/p' | gpg --import-ownertrust --yes
+
 #
 # assets
 #
@@ -37,15 +48,15 @@ COPY ["/assets", "/"]
 # nettle
 #
 RUN set -x \
-&&	curl --location --silent --output /build/nettle-${NETTLE_VERSION}.tar.gz "https://ftp.gnu.org/gnu/nettle/nettle-${NETTLE_VERSION}.tar.gz" \
-&&	curl --location --silent --compressed --output /build/nettle-${NETTLE_VERSION}.tar.gz.sig "https://ftp.gnu.org/gnu/nettle/nettle-${NETTLE_VERSION}.tar.gz.sig" \
-&&	gpg --verify /build/nettle-${NETTLE_VERSION}.tar.gz.sig \
-&&	tar -xf /build/nettle-${NETTLE_VERSION}.tar.gz -C /build \
-&&	rm -f /build/nettle-${NETTLE_VERSION}.tar.gz /build/nettle-${NETTLE_VERSION}.tar.gz.sig \
-&&	cd /build/nettle-${NETTLE_VERSION} \
+&&	curl --location --silent --output /usr/src/nettle-${NETTLE_VERSION}.tar.gz "https://ftp.gnu.org/gnu/nettle/nettle-${NETTLE_VERSION}.tar.gz" \
+&&	curl --location --silent --compressed --output /usr/src/nettle-${NETTLE_VERSION}.tar.gz.sig "https://ftp.gnu.org/gnu/nettle/nettle-${NETTLE_VERSION}.tar.gz.sig" \
+&&	gpg --verify /usr/src/nettle-${NETTLE_VERSION}.tar.gz.sig \
+&&	tar -xf /usr/src/nettle-${NETTLE_VERSION}.tar.gz -C /usr/src \
+&&	rm -f /usr/src/nettle-${NETTLE_VERSION}.tar.gz /usr/src-${NETTLE_VERSION}.tar.gz.sig \
+&&	cd /usr/src/nettle-${NETTLE_VERSION} \
 &&	CFLAGS="-I/usr/local/include" \
 	LDFLAGS="-L/usr/local/lib" \
-	./configure \
+		./configure \
 		--enable-mini-gmp \
 		--enable-x86-aesni \
 		--enable-x86-sha-ni \
@@ -58,12 +69,13 @@ RUN set -x \
 # gnutls
 #
 RUN set -x \
-&&	curl --location --silent --output /build/gnutls-${GNUTLS_VERSION}.tar.xz "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -f 1-2 -d .)/gnutls-${GNUTLS_VERSION}.tar.xz" \
-&&	curl --location --silent --compressed --output /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig "https://www.gnupg.org/ftp/gcrypt/gnutls/v$(echo ${GNUTLS_VERSION} | cut -f 1-2 -d .)/gnutls-${GNUTLS_VERSION}.tar.xz.sig" \
-&&	gpg --verify /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig \
-&&	tar -xf /build/gnutls-${GNUTLS_VERSION}.tar.xz -C /build \
-&&	rm -f /build/gnutls-${GNUTLS_VERSION}.tar.xz /build/gnutls-${GNUTLS_VERSION}.tar.xz.sig \
-&&	cd /build/gnutls-${GNUTLS_VERSION} \
+&&	curl --location --silent --output /usr/src/gnutls-${GNUTLS_VERSION}.tar.xz "https://www.gnupg.org/ftp/gcrypt/gnutls/v${GNUTLS_VERSION%.*}/gnutls-${GNUTLS_VERSION}.tar.xz" \
+&&	curl --location --silent --compressed --output /usr/src/gnutls-${GNUTLS_VERSION}.tar.xz.sig "https://www.gnupg.org/ftp/gcrypt/gnutls/v${GNUTLS_VERSION%.*}/gnutls-${GNUTLS_VERSION}.tar.xz.sig" \
+&&	gpg --verify /usr/src/gnutls-${GNUTLS_VERSION}.tar.xz.sig \
+&&	tar -xf /usr/src/gnutls-${GNUTLS_VERSION}.tar.xz -C /usr/src \
+&&	rm -f /usr/src/gnutls-${GNUTLS_VERSION}.tar.xz /usr/src/gnutls-${GNUTLS_VERSION}.tar.xz.sig \
+&&	cd /usr/src/gnutls-${GNUTLS_VERSION} \
+&&	unbound-anchor -a "/etc/unbound/root.key" ; true \
 &&	NETTLE_CFLAGS="-I/usr/local/include" \
 	NETTLE_LIBS="-L/usr/local/lib -lhogweed" \
 	HOGWEED_CFLAGS="-I/usr/local/include" \
@@ -90,13 +102,13 @@ RUN set -x \
 # libev
 #
 RUN set -x \
-&&	curl --location --silent --output /build/libev-${LIBEV_VERSION}.tar.gz "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz" \
-&&	curl --location --silent --compressed --output /build/libev-${LIBEV_VERSION}.tar.gz.sig "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz.sig" \
-&&	curl --location --silent --compressed --output /build/signing-key.pub "http://dist.schmorp.de/signing-key.pub" \
-&&	signify -V -p /build/signing-key.pub -m /build/libev-${LIBEV_VERSION}.tar.gz \
-&&	tar -xf /build/libev-${LIBEV_VERSION}.tar.gz -C /build \
-&&	rm -f /build/libev-${LIBEV_VERSION}.tar.gz /build/libev-${LIBEV_VERSION}.tar.gz.sig \
-&&	cd /build/libev-${LIBEV_VERSION} \
+&&	curl --location --silent --output /usr/src/libev-${LIBEV_VERSION}.tar.gz "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz" \
+&&	curl --location --silent --compressed --output /usr/src/libev-${LIBEV_VERSION}.tar.gz.sig "http://dist.schmorp.de/libev/libev-${LIBEV_VERSION}.tar.gz.sig" \
+&&	curl --location --silent --compressed --output /usr/src/signing-key.pub "http://dist.schmorp.de/signing-key.pub" \
+&&	signify -V -p /usr/src/signing-key.pub -m /usr/src/libev-${LIBEV_VERSION}.tar.gz \
+&&	tar -xf /usr/src/libev-${LIBEV_VERSION}.tar.gz -C /usr/src \
+&&	rm -f /usr/src/libev-${LIBEV_VERSION}.tar.gz /usr/src/libev-${LIBEV_VERSION}.tar.gz.sig /usr/src/signing-key.pub \
+&&	cd /usr/src/libev-${LIBEV_VERSION} \
 &&	./configure \
 		--enable-static \
 		--disable-shared \
@@ -106,10 +118,10 @@ RUN set -x \
 # lz4
 #
 RUN set -x \
-&&	curl --location --silent --output /build/lz4-${LZ4_VERSION}.tar.gz "https://github.com/lz4/lz4/archive/refs/tags/v${LZ4_VERSION}.tar.gz" \
-&&	tar -xf /build/lz4-${LZ4_VERSION}.tar.gz -C /build \
-&&	rm -f /build/lz4-${LZ4_VERSION}.tar.gz \
-&&	cd /build/lz4-${LZ4_VERSION} \
+&&	curl --location --silent --output /usr/src/lz4-${LZ4_VERSION}.tar.gz "https://github.com/lz4/lz4/archive/refs/tags/v${LZ4_VERSION}.tar.gz" \
+&&	tar -xf /usr/src/lz4-${LZ4_VERSION}.tar.gz -C /usr/src \
+&&	rm -f /usr/src/lz4-${LZ4_VERSION}.tar.gz \
+&&	cd /usr/src/lz4-${LZ4_VERSION} \
 &&	make -j`nproc` liblz4.a \
 &&	install lib/liblz4.a /usr/local/lib \
 &&	install lib/lz4*.h /usr/local/include
@@ -118,38 +130,41 @@ RUN set -x \
 #
 # Note: 'in_word_set()' in src/syscalls.perf.c conflicts with ocserv exports, rename it to '_in_word_set()'
 RUN set -x \
-&&	curl --location --silent --output /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz "https://github.com/seccomp/libseccomp/releases/download/v${LIBSECCOMP_VERSION}/libseccomp-${LIBSECCOMP_VERSION}.tar.gz" \
-&&	tar -xf /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz -C /build \
-&&	rm -f /build/libseccomp-${LIBSECCOMP_VERSION}.tar.gz \
-&&	cd /build/libseccomp-${LIBSECCOMP_VERSION} \
-&&	./configure --disable-shared --enable-static \
+&&	curl --location --silent --output /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz "https://github.com/seccomp/libseccomp/releases/download/v${LIBSECCOMP_VERSION}/libseccomp-${LIBSECCOMP_VERSION}.tar.gz" \
+&&	tar -xf /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz -C /usr/src \
+&&	rm -f /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz \
+&&	cd /usr/src/libseccomp-${LIBSECCOMP_VERSION} \
+&&	./configure \
+		--disable-shared \
+		--enable-static \
 &&	sed -i 's/in_word_set/_in_word_set/g' src/syscalls.perf.c \
 &&	make install
 #
 #	Download ocserv
 #
 RUN set -x \
-&&	curl --location --silent --output /build/ocserv-${OCSERV_VERSION}.tar.xz "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz" \
-&&	curl --location --silent --compressed --output /build/ocserv-${OCSERV_VERSION}.tar.xz.sig "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig" \
-&&	gpg --verify /build/ocserv-${OCSERV_VERSION}.tar.xz.sig \
-&&	tar -xf /build/ocserv-${OCSERV_VERSION}.tar.xz -C /build \
-&&	rm -f /build/ocserv-${OCSERV_VERSION}.tar.xz /build/ocserv-${OCSERV_VERSION}.tar.xz.sig
+&&	curl --location --silent --output /usr/src/ocserv-${OCSERV_VERSION}.tar.xz "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz" \
+&&	curl --location --silent --compressed --output /usr/src/ocserv-${OCSERV_VERSION}.tar.xz.sig "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz.sig" \
+&&	gpg --verify /usr/src/ocserv-${OCSERV_VERSION}.tar.xz.sig \
+&&	tar -xf /usr/src/ocserv-${OCSERV_VERSION}.tar.xz -C /usr/src \
+&&	rm -f /usr/src/ocserv-${OCSERV_VERSION}.tar.xz /usr/src/ocserv-${OCSERV_VERSION}.tar.xz.sig
 
-RUN set -x \
 #
 # readline stub
 #
-&&	cd /build/readline \
+RUN set -x \
+&&	cd /usr/src/readline \
 &&	cc -xc -c -O2 readline_stub.c \
-&&	ar rcs /usr/local/lib/libreadline.a readline_stub.o \
+&&	ar rcs /usr/local/lib/libreadline.a readline_stub.o
 #
 #	Compile ocserv
 #
-&&	cd /build/ocserv-${OCSERV_VERSION} \
+RUN	set -x \
+&&	cd /usr/src/ocserv-${OCSERV_VERSION} \
 &&	LIBNETTLE_CFLAGS="-I/usr/local/include" \
 	LIBNETTLE_LIBS="-L/usr/local/lib -lnettle" \
 	LIBGNUTLS_CFLAGS="-I/usr/local/include" \
-	LIBGNUTLS_LIBS="-L/usr/local/lib -lgnutls -lhogweed -lnettle" \
+	LIBGNUTLS_LIBS="-L/usr/local/lib -lgnutls -lhogweed -lnettle -lzstd -lz -lbrotlidec -lbrotlienc -lbrotlicommon -lunistring -lidn2" \
 	LIBLZ4_CFLAGS="-I/usr/include" \
 	LIBLZ4_LIBS="-L/usr/include -llz4" \
 	LIBREADLINE_CFLAGS="-I/usr/include" \
@@ -173,4 +188,23 @@ RUN set -x \
 		--without-utmp \
 &&	make -j`nproc` \
 &&	make install-exec \
-&&	file /usr/local/sbin/ocserv
+&&	file /usr/local/sbin/ocserv \
+&&	rm /usr/local/bin/scmp_sys_resolver \
+# Create self-signed certificate
+&&	mkdir -p /build/usr/local/bin /build/usr/local/sbin /build/etc/ssl/certs /build/etc/ssl/private /build/etc/unbound /build/etc/ocserv /build/var/run \
+&&	cp /usr/local/bin/oc* /build/usr/local/bin \
+&&	cp /usr/local/sbin/oc* /build/usr/local/sbin \
+&&	cp /etc/ssl/certs/ca-certificates.crt /build/etc/ssl/certs \
+&&	cp /etc/unbound/root.key /build/etc/unbound \
+&&	echo "test" | /usr/local/bin/ocpasswd --passwd=/build/etc/ocserv/ocserv.passwd test \
+&&	openssl req -x509 -newkey rsa:4096 -nodes -keyout /build/etc/ssl/private/localhost.key -out /build/etc/ssl/localhost.pem -days 365 -sha256 -subj '/CN=localhost'
+
+FROM busybox
+
+COPY --from=builder /build /
+COPY ["include", "/"]
+
+EXPOSE 8443/tcp 8443/udp
+
+ENTRYPOINT ["/usr/local/sbin/ocserv"]
+CMD ["--foreground"]

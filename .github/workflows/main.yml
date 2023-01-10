@@ -1,0 +1,57 @@
+name: Build container(s) & Upload Artifacts
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build-container-and-deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout from GitHub
+        id: checkout
+        uses: actions/checkout@v3
+      - name: Setup qemu
+        id: setup_qemu
+        uses: docker/setup-qemu-action@v2
+      - name: Setup Docker Buildx
+        id: setup_buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Log-in to ghcr.io
+        id: ghcr_login
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login https://ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Determine Image ID and Version
+        id: image_id
+        run: |
+          IMAGE_ID=$(echo ghcr.io/${{ github.repository }} | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # when the branch is main, replace main with latest
+          [ "$VERSION" == "main" ] && VERSION=latest
+          echo "IMAGE_ID=${IMAGE_ID}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+      - name: Build and push container image
+        id: image_build
+        run: |
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+          # Build and Publish container image
+          docker buildx build --push \
+          --build-arg SSL_LIBRARY=boringssl \
+          --tag $IMAGE_ID:$VERSION \
+          --platform linux/amd64,linux/arm64,linux/arm/v7 .
+      - name: Extract docker build artifacts
+        id: extract_artifacts
+        run: |
+          ./extract-artifacts.sh $IMAGE_ID $VERSION
+#      - name: Release
+#        uses: softprops/action-gh-release@v1
+#        with:
+#          files: |
+#            dist/nginx-http3-linux-amd64.tar.xz
+#            dist/nginx-http3-linux-arm64.tar.xz

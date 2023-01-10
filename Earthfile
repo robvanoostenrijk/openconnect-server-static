@@ -8,14 +8,16 @@ build:
 	FROM DOCKERFILE .
 
 package:
+	ARG --required PLATFORM
 	FROM +build
 
-	RUN set -x && \
-	    mkdir -p /build/dist && \
-            XZ_OPT=-9 tar -C /usr/local -Jcvf /build/dist/ocserv-static.tar.xz bin/occtl bin/ocpasswd bin/ocserv-fw sbin/ocserv sbin/ocserv-worker
+	RUN set -x \
+&&		mkdir -p /tmp/dist \
+&&		tar -C /usr/local -zcvf /tmp/dist/openconnect-server.tar.gz bin/occtl bin/ocpasswd bin/ocserv-fw sbin/ocserv sbin/ocserv-worker
 
-	SAVE ARTIFACT /build/dist/ocserv-static.tar.xz AS LOCAL ./dist/ocserv-static.tar.xz
+	SAVE ARTIFACT /tmp/dist/openconnect-server.tar.gz AS LOCAL ./dist/openconnect-server-${PLATFORM}.tar.gz
 
 all:
 	BUILD +clean
-	BUILD +package
+	BUILD --platform=linux/amd64 +package --PLATFORM=amd64
+	BUILD --platform=linux/arm64 +package --PLATFORM=arm64
