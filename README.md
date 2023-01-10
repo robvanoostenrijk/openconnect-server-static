@@ -1,3 +1,5 @@
+[![Build container(s) & Upload Artifacts](https://github.com/robvanoostenrijk/openconnect-server-static/actions/workflows/main.yml/badge.svg)](https://github.com/robvanoostenrijk/openconnect-server-static/actions/workflows/main.yml)
+
 ## Static ocserv (OpenConnect VPN Server) ##
 
 This repository contains a Dockerfile to build a statically compiled [ocserv](https://ocserv.gitlab.io/www/).
