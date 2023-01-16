@@ -11,7 +11,8 @@ ENV	OCSERV_VERSION="1.1.6" \
 #
 # assets
 #
-COPY ["/assets", "/"]
+COPY --link ["/assets", "/"]
+COPY --link ["scratchfs", "/scratchfs"]
 
 RUN	<<EOF
 
@@ -196,26 +197,23 @@ LDFLAGS="-L/usr/local/lib -s -w -static" \
 make -j`nproc`
 make install-exec
 file /usr/local/sbin/ocserv
-rm /usr/local/bin/scmp_sys_resolver
 
-# Build distribution
-mkdir -p /build/usr/local/bin /build/usr/local/sbin /build/etc/ssl/certs /build/etc/ssl/private /build/etc/unbound /build/etc/ocserv /build/var/run
-
-cp /usr/local/bin/oc* /build/usr/local/bin
-cp /usr/local/sbin/oc* /build/usr/local/sbin
-cp /etc/ssl/certs/ca-certificates.crt /build/etc/ssl/certs
-cp /etc/unbound/root.key /build/etc/unbound
-echo "test" | /usr/local/bin/ocpasswd --passwd=/build/etc/ocserv/ocserv.passwd test
+cp /usr/local/bin/oc* /scratchfs/usr/local/bin
+cp /usr/local/sbin/oc* /scratchfs/usr/local/sbin
+cp /etc/ssl/certs/ca-certificates.crt /scratchfs/etc/ssl/certs
+cp /etc/unbound/root.key /scratchfs/etc/unbound
+echo "test" | /usr/local/bin/ocpasswd --passwd=/scratchfs/etc/ocserv/ocserv.passwd test
 
 # Create self-signed certificate
-openssl req -x509 -newkey rsa:4096 -nodes -keyout /build/etc/ssl/private/localhost.key -out /build/etc/ssl/localhost.pem -days 365 -sha256 -subj "/CN=localhost"
+openssl req -x509 -newkey rsa:4096 -nodes -keyout /scratchfs/etc/ssl/private/localhost.key -out /scratchfs/etc/ssl/localhost.pem -days 365 -sha256 -subj "/CN=localhost"
+
+chmod 1777 /scratchfs/tmp
 
 EOF
 
-FROM busybox
+FROM scratch
 
-COPY --from=builder /build /
-COPY ["include", "/"]
+COPY --from=builder /scratchfs /
 
 EXPOSE 8443/tcp 8443/udp
 
