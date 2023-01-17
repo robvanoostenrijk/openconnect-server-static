@@ -6,10 +6,10 @@ This repository contains a Dockerfile to build a statically compiled [ocserv](ht
 
 Compilation is done using alpine and results in the following executable:
 
-    ocserv 1.1.3
+    ocserv 1.1.6
 
-    Compiled with: PKCS#11, AnyConnect
-    GnuTLS version: 3.7.2
+    Compiled with: seccomp, PKCS#11, AnyConnect
+    GnuTLS version: 3.7.3
 
 A default Alpine based dynamic compiled version is included in `Dockerfile-alpine`.
 
