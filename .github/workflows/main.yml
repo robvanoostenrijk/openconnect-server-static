@@ -57,6 +57,5 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/openconnect-server-linux-amd64.tar.xz
-            dist/openconnect-server-linux-arm64.tar.xz
-            dist/openconnect-server-linux-arm-v7.tar.xz
+            dist/*
+
