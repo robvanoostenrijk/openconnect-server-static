@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 IMAGE=$1
-VERSION=$2
 
 echo "[i] Clean dist folder"
 rm -f -R ./dist
@@ -9,7 +8,7 @@ mkdir -p ./dist
 
 for PLATFORM in linux/amd64 linux/arm64 linux/arm/v7
 do
-    CONTAINER=$(docker create --platform ${PLATFORM} "${IMAGE}:${VERSION}")
+    CONTAINER=$(docker create --platform ${PLATFORM} "${IMAGE}:latest")
     echo "[i] Created container ${CONTAINER:0:12}"
 
     echo "[i] Extract assets"
