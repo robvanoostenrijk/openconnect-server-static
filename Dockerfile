@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1.4
 FROM alpine:latest AS builder
 
-ENV	OCSERV_VERSION="1.1.6" \
-	NETTLE_VERSION="3.8" \
-	GNUTLS_VERSION="3.7.8" \
+ENV	OCSERV_VERSION="1.2.1" \
+	NETTLE_VERSION="3.9.1" \
+	GNUTLS_VERSION="3.8.1" \
 	LIBSECCOMP_VERSION="2.5.4" \
 	LIBEV_VERSION="4.33" \
-	LZ4_VERSION="1.9.3"
+	LZ4_VERSION="1.9.4"
 
 #
 # assets
@@ -37,6 +37,8 @@ apk add --no-cache \
 	zlib-dev \
 	zlib-static \
 	zstd-dev \
+	zstd-libs \
+	zstd-static \
 	--repository=http://dl-cdn.alpinelinux.org/alpine/latest-stable/main
 mkdir -p /usr/src
 cd /usr/src
@@ -188,7 +190,6 @@ LDFLAGS="-L/usr/local/lib -s -w -static" \
 	--without-http-parser \
 	--without-libwrap \
 	--without-maxmind \
-	--without-nuttcp-tests \
 	--without-pcl-lib \
 	--without-protobuf \
 	--without-radius \
