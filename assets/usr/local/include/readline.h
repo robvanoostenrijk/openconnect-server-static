@@ -12,4 +12,7 @@ void add_history(const char *string);
 int rl_reset_terminal(const char *terminal_name);
 char **rl_completion_matches(const char *text, void *entry_func);
 void rl_redisplay(void);
+
+# define c_isspace(x) isspace(x)
+
 #endif
