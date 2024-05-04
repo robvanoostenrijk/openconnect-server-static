@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.4
 FROM alpine:latest AS builder
 
-ENV	OCSERV_VERSION="1.2.3" \
+ENV	OCSERV_VERSION="1.2.4" \
 	NETTLE_VERSION="3.9.1" \
-	GNUTLS_VERSION="3.8.2" \
+	GNUTLS_VERSION="3.8.5" \
 	LIBSECCOMP_VERSION="2.5.5" \
 	LIBEV_VERSION="4.33" \
 	LZ4_VERSION="1.9.4"
