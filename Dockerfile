@@ -2,8 +2,8 @@
 FROM alpine:latest AS builder
 
 ENV	OCSERV_VERSION="1.3.0" \
-	NETTLE_VERSION="3.9.1" \
-	GNUTLS_VERSION="3.8.3" \
+	NETTLE_VERSION="3.10" \
+	GNUTLS_VERSION="3.8.6" \
 	LIBSECCOMP_VERSION="2.5.5" \
 	LIBEV_VERSION="4.33" \
 	LZ4_VERSION="1.9.4"
@@ -65,14 +65,31 @@ cd /usr/src/nettle
 CFLAGS="-I/usr/local/include" \
 LDFLAGS="-L/usr/local/lib" \
 ./configure \
+	--enable-arm64-crypto \
 	--enable-mini-gmp \
 	--enable-x86-aesni \
+	--enable-x86-pclmul \
 	--enable-x86-sha-ni \
 	--enable-static \
 	--disable-shared \
 	--disable-documentation
 sed 's|cnd-copy\.c |&cnd-memcpy.c |' Makefile -i
 make -j`nproc` install-headers install-static
+
+#
+# libseccomp
+#
+# Note: 'in_word_set()' in src/syscalls.perf.c conflicts with ocserv exports, rename it to '_in_word_set()'
+curl --location --silent --output /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz "https://github.com/seccomp/libseccomp/releases/download/v${LIBSECCOMP_VERSION}/libseccomp-${LIBSECCOMP_VERSION}.tar.gz"
+mkdir -p /usr/src/libseccomp
+tar -xf /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz -C /usr/src/libseccomp --strip-components=1
+rm -f /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz
+cd /usr/src/libseccomp
+./configure \
+	--disable-shared \
+	--enable-static
+sed -i 's/in_word_set/_in_word_set/g' src/syscalls.perf.c
+make install
 
 #
 # gnutls
@@ -90,13 +107,17 @@ NETTLE_LIBS="-L/usr/local/lib -lhogweed" \
 HOGWEED_CFLAGS="-I/usr/local/include" \
 HOGWEED_LIBS="-L/usr/local/lib" \
 	./configure \
+		--with-libseccomp-prefix=/usr/local \
 		--with-nettle-mini \
 		--enable-static=yes \
 		--enable-shared=no \
 		--with-included-libtasn1 \
 		--with-included-unistring \
+		--without-brotli \
 		--without-p11-kit \
 		--without-tpm \
+		--without-tpm2 \
+		--without-zstd \
 		--disable-doc \
 		--disable-tools \
 		--disable-cxx \
@@ -136,21 +157,6 @@ cd /usr/src/lz4
 make -j`nproc` liblz4.a
 install lib/liblz4.a /usr/local/lib
 install lib/lz4*.h /usr/local/include
-
-#
-# libseccomp
-#
-# Note: 'in_word_set()' in src/syscalls.perf.c conflicts with ocserv exports, rename it to '_in_word_set()'
-curl --location --silent --output /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz "https://github.com/seccomp/libseccomp/releases/download/v${LIBSECCOMP_VERSION}/libseccomp-${LIBSECCOMP_VERSION}.tar.gz"
-mkdir -p /usr/src/libseccomp
-tar -xf /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz -C /usr/src/libseccomp --strip-components=1
-rm -f /usr/src/libseccomp-${LIBSECCOMP_VERSION}.tar.gz
-cd /usr/src/libseccomp
-./configure \
-	--disable-shared \
-	--enable-static
-sed -i 's/in_word_set/_in_word_set/g' src/syscalls.perf.c
-make install
 
 #
 # Download ocserv
