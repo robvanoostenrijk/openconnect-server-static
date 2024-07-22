@@ -6,7 +6,7 @@ echo "[i] Clean dist folder"
 rm -f -R ./dist
 mkdir -p ./dist
 
-for PLATFORM in linux/amd64 linux/arm64 linux/arm/v7 linux/arm/v6
+for PLATFORM in linux/amd64 linux/arm64 linux/arm/v7
 do
     CONTAINER=$(docker create --platform ${PLATFORM} "${IMAGE}:latest")
     echo "[i] Created container ${CONTAINER:0:12}"
