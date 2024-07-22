@@ -3,7 +3,8 @@ FROM alpine:latest AS builder
 
 ENV	OCSERV_VERSION="1.3.0" \
 	GNUTLS_VERSION="3.8.6" \
-	LIBSECCOMP_VERSION="2.5.5"
+	LIBSECCOMP_VERSION="2.5.5" \
+	LZ4_VERSION="1.9.4"
 
 #
 # assets
@@ -14,6 +15,9 @@ COPY --link ["scratchfs", "/scratchfs"]
 RUN	<<EOF
 
 set -x
+sed -i -r 's/v\d+\.\d+/edge/g' /etc/apk/repositories
+apk update
+apk upgrade --no-interactive --latest
 apk add --no-cache \
 	brotli-dev \
 	brotli-static \
@@ -26,8 +30,6 @@ apk add --no-cache \
 	libidn2-static \
 	libunistring-static \
 	linux-headers \
-	lz4-dev \
-	lz4-static \
 	ncurses-dev \
 	ncurses-static \
 	nettle-dev \
@@ -42,8 +44,7 @@ apk add --no-cache \
 	zlib-static \
 	zstd-dev \
 	zstd-libs \
-	zstd-static \
-	--repository=http://dl-cdn.alpinelinux.org/alpine/latest-stable/main
+	zstd-static
 mkdir -p /usr/src
 cd /usr/src
 set -- \
@@ -101,6 +102,18 @@ make -j`nproc`
 make install-strip
 
 #
+# lz4
+#
+curl --location --silent --output /usr/src/lz4-${LZ4_VERSION}.tar.gz "https://github.com/lz4/lz4/archive/refs/tags/v${LZ4_VERSION}.tar.gz"
+mkdir -p /usr/src/lz4
+tar -xf /usr/src/lz4-${LZ4_VERSION}.tar.gz -C /usr/src/lz4 --strip-components=1
+rm -f /usr/src/lz4-${LZ4_VERSION}.tar.gz
+cd /usr/src/lz4
+make -j`nproc` liblz4.a
+install lib/liblz4.a /usr/local/lib
+install lib/lz4*.h /usr/local/include
+
+#
 # Download ocserv
 #
 curl --location --silent --output /usr/src/ocserv-${OCSERV_VERSION}.tar.xz "https://www.infradead.org/ocserv/download/ocserv-${OCSERV_VERSION}.tar.xz"
@@ -117,6 +130,8 @@ cd /usr/src/ocserv
 LIBREADLINE_LIBS="-lreadline -lncurses -lnettle" \
 LIBNETTLE_LIBS="-lgmp" \
 LIBGNUTLS_LIBS="-lgnutls -lgmp -lnettle -lhogweed -lidn2 -lunistring" \
+LIBLZ4_CFLAGS="-I/usr/include" \
+LIBLZ4_LIBS="-L/usr/include -llz4" \
 CFLAGS="-Wno-type-limits" \
 LDFLAGS="-L/usr/local/lib -s -w -static" \
 ./configure \
