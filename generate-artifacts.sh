@@ -9,6 +9,11 @@ do
 	docker cp "${CONTAINER}:/usr/local/bin/${FILE}" ./dist/bin
 done
 
+for FILE in "ocserv-fw"
+do
+	docker cp "${CONTAINER}:/usr/local/libexec/${FILE}" ./dist/bin
+done
+
 for FILE in "ocserv" "ocserv-worker"
 do
 	docker cp "${CONTAINER}:/usr/local/sbin/${FILE}" ./dist/sbin
