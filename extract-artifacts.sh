@@ -15,7 +15,7 @@ do
     mkdir -p ./dist/bin ./dist/sbin
     docker cp "${CONTAINER}:/usr/local/bin/occtl" ./dist/bin
     docker cp "${CONTAINER}:/usr/local/bin/ocpasswd" ./dist/bin
-    docker cp "${CONTAINER}:/usr/local/bin/ocserv-fw" ./dist/bin
+    docker cp "${CONTAINER}:/usr/local/libexec/ocserv-fw" ./dist/libexec
     docker cp "${CONTAINER}:/usr/local/sbin/ocserv" ./dist/sbin
     docker cp "${CONTAINER}:/usr/local/sbin/ocserv-worker" ./dist/sbin
 
