@@ -8,7 +8,7 @@ build:
 	FROM DOCKERFILE .
 	SAVE ARTIFACT /usr/local/bin/occtl
 	SAVE ARTIFACT /usr/local/bin/ocpasswd
-	SAVE ARTIFACT /usr/local/bin/ocserv-fw
+	SAVE ARTIFACT /usr/local/libexec/ocserv-fw
 	SAVE ARTIFACT /usr/local/sbin/ocserv
 	SAVE ARTIFACT /usr/local/sbin/ocserv-worker
 
@@ -18,11 +18,11 @@ package:
 	LOCALLY
 	COPY +build/occtl dist/bin/
 	COPY +build/ocpasswd dist/bin/
-	COPY +build/ocserv-fw dist/bin/
+	COPY +build/ocserv-fw dist/libexec/
 	COPY +build/ocserv dist/sbin/
 	COPY +build/ocserv-worker dist/sbin/
-	RUN XZ_OPT=-9 tar -C dist -Jcvf dist/openconnect-server-${PLATFORM}.tar.xz bin/occtl bin/ocpasswd bin/ocserv-fw sbin/ocserv sbin/ocserv-worker \
-	 && rm -f -R dist/bin dist/sbin
+	RUN XZ_OPT=-9 tar -C dist -Jcvf dist/openconnect-server-${PLATFORM}.tar.xz bin/occtl bin/ocpasswd libexec/ocserv-fw sbin/ocserv sbin/ocserv-worker \
+	 && rm -f -R dist/bin dist/sbin dist/libexec
 
 all:
 	BUILD +clean
