@@ -4,7 +4,8 @@ FROM alpine:latest AS builder
 ENV	OCSERV_VERSION="1.4.0" \
 	GNUTLS_VERSION="3.8.11" \
 	LIBSECCOMP_VERSION="2.6.0" \
-	LZ4_VERSION="1.10.0"
+	LZ4_VERSION="1.10.0" \
+	LLHTTP_VERSION="9.3.0"
 
 #
 # assets
@@ -20,6 +21,8 @@ apk update
 apk upgrade --no-interactive --latest
 apk add --no-cache \
 	build-base \
+	cmake make \
+	zlib-dev zlib-static \
 	curl \
 	geoip-dev \
 	geoip-static \
@@ -51,6 +54,22 @@ set -- \
 gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys $@ || \
 gpg --batch --keyserver hkps://peegeepee.com --recv-keys $@ \
 gpg --yes --list-keys --fingerprint --with-colons | sed -E -n -e 's/^fpr:::::::::([0-9A-F]+):$/\1:6:/p' | gpg --import-ownertrust --yes
+
+#
+# llhttp
+#
+curl --location --silent --output /usr/src/llhttp-${LLHTTP_VERSION}.tar.gz "https://github.com/nodejs/llhttp/archive/refs/tags/release/v${LLHTTP_VERSION}.tar.gz"
+mkdir -p /usr/src/llhttp
+tar -xf /usr/src/llhttp-${LLHTTP_VERSION}.tar.gz -C /usr/src/llhttp --strip-components=1
+rm -f /usr/src/llhttp-${LLHTTP_VERSION}.tar.gz.tar.gz
+cd /usr/src/llhttp
+cmake \
+    -DBUILD_STATIC_LIBS=ON \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr
+make
+make install
 
 #
 # libseccomp
@@ -130,7 +149,7 @@ LIBGNUTLS_LIBS="-lgnutls -lgmp -lnettle -lhogweed -lidn2 -lunistring" \
 LIBLZ4_CFLAGS="-I/usr/include" \
 LIBLZ4_LIBS="-L/usr/include -llz4" \
 CFLAGS="-Wno-type-limits" \
-LIBS="" \
+LIBS="-lz -lllhttp" \
 LDFLAGS="-L/usr/local/lib -s -w -static" \
 ./configure \
 	--with-local-talloc \
