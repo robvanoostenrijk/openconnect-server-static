@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.4
 FROM alpine:latest AS builder
 
-ENV	OCSERV_VERSION="1.4.0" \
-	GNUTLS_VERSION="3.8.11" \
+ENV	OCSERV_VERSION="1.4.2" \
+	GNUTLS_VERSION="3.8.13" \
 	LIBSECCOMP_VERSION="2.6.0" \
 	LZ4_VERSION="1.10.0" \
-	LLHTTP_VERSION="9.3.0"
+	LLHTTP_VERSION="9.4.1"
 
 #
 # assets
@@ -35,12 +35,14 @@ apk add --no-cache \
 	libidn2-static \
 	libunistring-static \
 	linux-headers \
+	meson \
 	ncurses-dev \
 	ncurses-static \
 	nettle-dev \
 	nettle-static \
 	oath-toolkit-dev \
 	openssl \
+	protobuf-c-compiler \
 	readline-dev \
 	readline-static \
 	ronn \
@@ -143,28 +145,29 @@ rm -f /usr/src/ocserv-${OCSERV_VERSION}.tar.xz /usr/src/ocserv-${OCSERV_VERSION}
 # Compile ocserv
 #
 cd /usr/src/ocserv
-LIBREADLINE_LIBS="-lreadline -lncurses -lnettle" \
-LIBNETTLE_LIBS="-lgmp" \
-LIBGNUTLS_LIBS="-lgnutls -lgmp -lnettle -lhogweed -lidn2 -lunistring" \
-LIBLZ4_CFLAGS="-I/usr/include" \
-LIBLZ4_LIBS="-L/usr/include -llz4" \
-CFLAGS="-Wno-type-limits" \
-LIBS="-lz -lllhttp" \
-LDFLAGS="-L/usr/local/lib -s -w -static" \
-./configure \
-	--with-local-talloc \
-	--with-pager="" \
-	--without-gssapi \
-	--without-libwrap \
-	--without-maxmind \
-	--without-pcl-lib \
-	--without-protobuf \
-	--without-radius \
-	--without-tun-tests \
-	--without-utmp
-make -j`nproc`
-make install-exec
+meson setup builddir \
+	--buildtype=release \
+	--default-library=static \
+	--prefer-static \
+	-Dc_link_args="-static -lncurses"
+	-Dgssapi=disabled \
+	-Dkerberos-tests=false \
+	-Dlibwrap=disabled \
+	-Dlocal-pcl=true \
+	-Dlocal-protobuf=true \
+	-Dlocal-talloc=true \
+	-Dlz4=enabled \
+	-Dmaxmind=disabled \
+	-Dpager='' \
+	-Dradius=disabled \
+	-Droot-tests=false \
+	-Dtun-tests=false \
+	-Dutmp=disabled
+
+meson compile -C builddir
+meson install -C builddir
 file /usr/local/sbin/ocserv
+/usr/local/sbin/ocserv -v
 
 mkdir -p \
 	/scratchfs/etc/ssl/certs \
