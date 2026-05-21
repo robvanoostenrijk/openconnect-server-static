@@ -5,15 +5,43 @@ on:
     tags:
       - '*'
 
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
 jobs:
-  build-container-and-deploy:
+  determine-version:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Determine Version
+        id: version
+        run: |
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # when the branch is main, replace main with latest
+          [ "$VERSION" == "main" ] && VERSION=latest
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: determine-version
+    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            platform: linux/amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            platform: linux/arm64
     steps:
       - name: Checkout from GitHub
         uses: actions/checkout@v4
-      - name: Setup qemu
-        uses: docker/setup-qemu-action@v3
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to GitHub Container Registry
@@ -22,28 +50,79 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Determine Version
-        run: |
-          # Strip git ref prefix from version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          # Strip "v" prefix from tag name
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-          # when the branch is main, replace main with latest
-          [ "$VERSION" == "main" ] && VERSION=latest
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: ${{ matrix.platform }}
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ env.VERSION }}
+          tags: ${{ env.IMAGE }}:${{ needs.determine-version.outputs.version }}-${{ matrix.arch }}
       - name: Extract docker build artifacts
         run: |
-          ./extract-artifacts.sh ghcr.io/${{ github.repository }}
+          CONTAINER=$(docker create --platform ${{ matrix.platform }} "${{ env.IMAGE }}:${{ needs.determine-version.outputs.version }}-${{ matrix.arch }}")
+          echo "[i] Created container ${CONTAINER:0:12}"
+
+          mkdir -p ./dist/bin ./dist/libexec ./dist/sbin
+          docker cp "${CONTAINER}:/usr/local/bin/occtl" ./dist/bin
+          docker cp "${CONTAINER}:/usr/local/bin/ocpasswd" ./dist/bin
+          docker cp "${CONTAINER}:/usr/local/libexec/ocserv-fw" ./dist/libexec
+          docker cp "${CONTAINER}:/usr/local/sbin/ocserv" ./dist/sbin
+          docker cp "${CONTAINER}:/usr/local/sbin/ocserv-worker" ./dist/sbin
+
+          XZ_OPT=-9 tar -C ./dist -Jcvf ./dist/openconnect-server-${{ matrix.platform == 'linux/amd64' && 'linux-amd64' || 'linux-arm64' }}.tar.xz bin/occtl bin/ocpasswd libexec/ocserv-fw sbin/ocserv sbin/ocserv-worker
+
+          docker rm $CONTAINER
+          rm -f -R ./dist/bin ./dist/libexec ./dist/sbin
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.arch }}
+          path: dist/*.tar.xz
+
+  manifest:
+    needs: [determine-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create and push multi-arch manifest
+        run: |
+          VERSION=${{ needs.determine-version.outputs.version }}
+          docker buildx imagetools create -t ${{ env.IMAGE }}:${VERSION} \
+            ${{ env.IMAGE }}:${VERSION}-amd64 \
+            ${{ env.IMAGE }}:${VERSION}-arm64
+          docker buildx imagetools create -t ${{ env.IMAGE }}:latest \
+            ${{ env.IMAGE }}:${VERSION}-amd64 \
+            ${{ env.IMAGE }}:${VERSION}-arm64
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*
 
+  cleanup:
+    needs: [manifest, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove old packages
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'openconnect-server-static'
+          package-type: 'container'
+          min-versions-to-keep: 10
