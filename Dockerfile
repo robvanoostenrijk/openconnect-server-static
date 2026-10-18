@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.4
 FROM alpine:latest AS builder
 
-ENV	OCSERV_VERSION="1.4.2" \
+ENV	OCSERV_VERSION="1.6.0" \
 	GNUTLS_VERSION="3.8.13" \
-	LIBSECCOMP_VERSION="2.6.0" \
+	LIBSECCOMP_VERSION="2.6.1" \
 	LZ4_VERSION="1.10.0" \
-	LLHTTP_VERSION="9.4.1"
+	LLHTTP_VERSION="9.4.3"
 
 #
 # assets
