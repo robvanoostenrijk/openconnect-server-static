@@ -108,13 +108,14 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v8
         with:
+          pattern: dist-*
           path: dist
           merge-multiple: true
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            dist/*
+            dist/*.tar.xz
 
   cleanup:
     needs: [manifest, release]
